@@ -1,0 +1,21 @@
+{
+  "name": "taskdesk",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "migrate": "npm run migrate --workspace @taskdesk/api",
+    "build": "npm run build --workspace @taskdesk/api && npm run build --workspace @taskdesk/web",
+    "start": "node scripts/start.js",
+    "start:web": "npm run start --workspace @taskdesk/web",
+    "test": "npm run test --workspace @taskdesk/api"
+  },
+  "overrides": { "postcss": "^8.5.23" },
+  "allowScripts": {
+    "argon2@0.41.1": true,
+    "esbuild@0.28.2": true
+  }
+}

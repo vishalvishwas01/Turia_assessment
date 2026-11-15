@@ -1,0 +1,11 @@
+CREATE TABLE firms (id text PRIMARY KEY, name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE users (id text PRIMARY KEY, name text NOT NULL, email text NOT NULL UNIQUE, password_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE firm_memberships (firm_id text NOT NULL REFERENCES firms(id) ON DELETE CASCADE, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, role text NOT NULL CHECK (role IN ('admin','employee')), PRIMARY KEY (firm_id,user_id));
+CREATE TABLE sessions (id text PRIMARY KEY, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash text NOT NULL UNIQUE, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX sessions_active_user_idx ON sessions(user_id,expires_at) WHERE revoked_at IS NULL;
+CREATE TABLE clients (id text PRIMARY KEY, firm_id text NOT NULL REFERENCES firms(id) ON DELETE CASCADE, name text NOT NULL, email text, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(firm_id,id));
+CREATE TABLE tasks (id text PRIMARY KEY, firm_id text NOT NULL REFERENCES firms(id) ON DELETE CASCADE, client_id text NOT NULL, assignee_id text NOT NULL, title text NOT NULL, status integer NOT NULL DEFAULT 0 CHECK (status BETWEEN 0 AND 2), due_date bigint, fee numeric(12,2) NOT NULL DEFAULT 0 CHECK (fee >= 0), notes text, created_on bigint NOT NULL, FOREIGN KEY(firm_id,client_id) REFERENCES clients(firm_id,id), FOREIGN KEY(firm_id,assignee_id) REFERENCES firm_memberships(firm_id,user_id));
+CREATE INDEX tasks_firm_status_idx ON tasks(firm_id,status);
+CREATE INDEX tasks_assignee_idx ON tasks(firm_id,assignee_id);
+CREATE INDEX tasks_client_idx ON tasks(firm_id,client_id);
+CREATE INDEX tasks_due_idx ON tasks(firm_id,due_date);
