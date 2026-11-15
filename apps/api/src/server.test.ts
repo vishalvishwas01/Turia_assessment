@@ -11,6 +11,7 @@ describe("Taskdesk API (PostgreSQL integration)", () => {
   const adminEmail = `admin-${stamp}@example.test`;
   const employeeEmail = `employee-${stamp}@example.test`;
   const otherFirmEmail = `other-${stamp}@example.test`;
+  const branchOnlyEmail = `branch-only-${stamp}@example.test`;
   let firmId = "", otherFirmId = "", adminId = "", employeeId = "";
   let adminToken = "", employeeToken = "", otherFirmToken = "";
   let assignedClientId = "", hiddenClientId = "", queryClientId = "";
@@ -78,6 +79,7 @@ describe("Taskdesk API (PostgreSQL integration)", () => {
     try {
       if (firmId) await pool.query("DELETE FROM firms WHERE id=$1", [firmId]);
       if (otherFirmId) await pool.query("DELETE FROM firms WHERE id=$1", [otherFirmId]);
+      await pool.query("DELETE FROM users WHERE email=ANY($1::text[])", [[adminEmail, employeeEmail, otherFirmEmail, branchOnlyEmail]]);
     } finally {
       await app.close();
       await pool.end();
@@ -221,4 +223,49 @@ describe("Taskdesk API (PostgreSQL integration)", () => {
     expect((await call("GET", `/tasks/${adminTaskId}`, adminToken)).statusCode).toBe(404);
     expect((await call("DELETE", `/tasks/${adminTaskId}`, adminToken)).statusCode).toBe(404);
   });
+
+  it("supports one-level branches, explicit organization selection, inherited access, and invitations", async () => {
+    const branch=await call("POST","/branches",adminToken,{name:`Branch ${stamp}`});
+    expect(branch.statusCode).toBe(201);const branchId=branch.json().firmId;
+    expect((await call("GET","/me",adminToken)).statusCode).toBe(400);
+    const me=await call("GET",`/me?organizationId=${branchId}`,adminToken);
+    expect(me.statusCode).toBe(200);expect(me.json().firms).toEqual(expect.arrayContaining([
+      expect.objectContaining({firmId,parentFirmId:null}),expect.objectContaining({firmId:branchId,parentFirmId:firmId})
+    ]));
+    expect((await call("GET",`/clients?organizationId=${otherFirmId}`,adminToken)).statusCode).toBe(403);
+    expect((await call("POST",`/branches?organizationId=${branchId}`,adminToken,{name:"Nested"})).statusCode).toBe(400);
+    expect((await call("PATCH",`/staff/${employeeId}/role?organizationId=${branchId}`,adminToken,{role:"admin"})).statusCode).toBe(403);
+    const branchClient=await call("POST",`/clients?organizationId=${branchId}`,adminToken,{name:"Branch client"});
+    expect(branchClient.statusCode).toBe(201);
+    const inheritedTask=await call("POST",`/tasks?organizationId=${branchId}`,adminToken,{clientId:branchClient.json().id,title:"HQ assigned in branch",assigneeId:employeeId});
+    expect(inheritedTask.statusCode).toBe(201);
+    expect((await call("GET",`/tasks?organizationId=${branchId}`,employeeToken)).json().data.map((t:any)=>t.id)).toContain(inheritedTask.json().id);
+    const invite=await call("POST",`/invites?organizationId=${branchId}`,adminToken,{email:employeeEmail,role:"admin"});
+    expect(invite.statusCode).toBe(201);
+    expect((await call("POST","/invites/accept",undefined,{token:invite.json().inviteToken,password:"wrong",name:"Employee"})).statusCode).toBe(401);
+    expect((await call("POST","/invites/accept",undefined,{token:invite.json().inviteToken,password:"AnotherPass123!",name:"Employee"})).statusCode).toBe(201);
+    expect((await call("POST","/invites/accept",undefined,{token:invite.json().inviteToken,password:"AnotherPass123!",name:"Employee"})).statusCode).toBe(404);
+    const inheritedRole=await call("GET",`/me?organizationId=${branchId}`,employeeToken);
+    expect(inheritedRole.json().role).toBe("employee");
+
+    const branchOnlyInvite=await call("POST",`/invites?organizationId=${branchId}`,adminToken,{email:branchOnlyEmail,role:"employee"});
+    const branchOnlyAccepted=await call("POST","/invites/accept",undefined,{token:branchOnlyInvite.json().inviteToken,password:"BranchPass123!",name:"Branch Only"});
+    expect(branchOnlyAccepted.statusCode).toBe(201);
+    const branchOnlyLogin=await call("POST","/auth/login",undefined,{email:branchOnlyEmail,password:"BranchPass123!"});
+    const branchOnlyToken=branchOnlyLogin.json().accessToken;
+    expect((await call("GET",`/me?organizationId=${firmId}`,branchOnlyToken)).statusCode).toBe(403);
+    expect((await call("GET",`/me?organizationId=${branchId}`,branchOnlyToken)).json().role).toBe("employee");
+
+    const otherFirmInvite=await call("POST",`/invites?organizationId=${otherFirmId}`,otherFirmToken,{email:employeeEmail,role:"admin"});
+    expect(otherFirmInvite.statusCode).toBe(201);
+    expect((await call("POST","/invites/accept",undefined,{token:otherFirmInvite.json().inviteToken,password:"AnotherPass123!",name:"Employee"})).statusCode).toBe(201);
+    expect((await call("GET","/me",employeeToken)).statusCode).toBe(400);
+    expect((await call("GET",`/me?organizationId=${otherFirmId}`,employeeToken)).json().role).toBe("admin");
+    expect((await call("POST","/auth/logout",employeeToken)).statusCode).toBe(400);
+    const storedToken=await pool.query("SELECT token_hash FROM firm_invites WHERE email=$1",[branchOnlyEmail]);
+    expect(storedToken.rows[0].token_hash).not.toBe(branchOnlyInvite.json().inviteToken);
+    await expect(pool.query("INSERT INTO firms(id,name,parent_firm_id) VALUES($1,$2,$3)",[randomBranchId(),"Invalid nested branch",branchId])).rejects.toMatchObject({code:"23514"});
+  });
 });
+
+function randomBranchId(){return `test-${Date.now()}-${Math.random().toString(36).slice(2)}`}

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 export async function middleware(request: NextRequest) {
   const path=request.nextUrl.pathname;
-  if (["/login","/signup"].includes(path)) return NextResponse.next();
+  if (["/login","/signup","/invite"].includes(path)) return NextResponse.next();
   const token=request.cookies.get("taskdesk_session")?.value;
   let valid=false;
   if(token){
     try{
-      const response=await fetch(`${process.env.API_URL??"http://localhost:4000"}/me`,{headers:{authorization:`Bearer ${token}`},cache:"no-store"});
-      valid=response.ok;
+      const organization=request.cookies.get("taskdesk_organization")?.value;
+      let response=await fetch(`${process.env.API_URL??"http://localhost:4000"}/me${organization?`?organizationId=${encodeURIComponent(organization)}`:""}`,{headers:{authorization:`Bearer ${token}`},cache:"no-store"});
+      if(response.status===403&&organization)response=await fetch(`${process.env.API_URL??"http://localhost:4000"}/me`,{headers:{authorization:`Bearer ${token}`},cache:"no-store"});
+      valid=response.ok||response.status===400;
     }catch{}
   }
   if(!valid){

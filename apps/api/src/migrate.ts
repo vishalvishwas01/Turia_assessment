@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Client } from "pg";
 import { config } from "dotenv";
@@ -9,13 +9,17 @@ async function migrate() {
   await client.connect();
   try {
     await client.query("CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())");
-    const name = "001_core.sql";
-    const done = await client.query("SELECT 1 FROM schema_migrations WHERE name=$1", [name]);
-    if (!done.rowCount) {
+    const directory = resolve(process.cwd(), "../../migrations");
+    const migrations = (await readdir(directory)).filter(name => /^\d+_.+\.sql$/.test(name)).sort();
+    for (const name of migrations) {
+      const done = await client.query("SELECT 1 FROM schema_migrations WHERE name=$1", [name]);
+      if (done.rowCount) continue;
       await client.query("BEGIN");
-      await client.query(await readFile(resolve(process.cwd(), "../../migrations", name), "utf8"));
-      await client.query("INSERT INTO schema_migrations(name) VALUES ($1)", [name]);
-      await client.query("COMMIT");
+      try {
+        await client.query(await readFile(resolve(directory, name), "utf8"));
+        await client.query("INSERT INTO schema_migrations(name) VALUES ($1)", [name]);
+        await client.query("COMMIT");
+      } catch (error) { await client.query("ROLLBACK"); throw error; }
     }
     const runtimeRole = decodeURIComponent(new URL(process.env.DATABASE_URL!).username);
     const quotedRole = `"${runtimeRole.replace(/"/g, '""')}"`;

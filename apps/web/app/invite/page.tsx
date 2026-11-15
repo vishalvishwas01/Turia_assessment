@@ -1,0 +1,12 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { applyFieldErrors } from "../components/Shell";
+
+export default function InvitePage(){
+  const [token,setToken]=useState<string|null>(null);
+  useEffect(()=>{setToken(new URLSearchParams(window.location.search).get("token")??"")},[]);
+  const [error,setError]=useState(""),[accepted,setAccepted]=useState(false),[busy,setBusy]=useState(false);
+  async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setError("");setBusy(true);const form=e.currentTarget,d=Object.fromEntries(new FormData(form));const r=await fetch("/api/invites/accept",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...d,token})});const result=await r.json().catch(()=>({}));setBusy(false);if(!r.ok){applyFieldErrors(result.fields,form);setError(r.status===401?"That email already has an account. Enter its current password.":r.status===404?"This invitation is invalid, expired, or already used.":r.status===409?"This account is already a member of the firm.":result.error??"Unable to accept invitation.");return;}setAccepted(true);}
+  return <main className="content-area login-page"><section className="login-card"><div className="login-brand"><span className="brand-mark">T</span><span>taskdesk</span></div>{accepted?<><span className="eyebrow">Invitation accepted</span><h1 style={{marginTop:6,marginBottom:12}}>You’re all set</h1><p style={{color:"#75857f",fontSize:13}}>Your account now has access to the invited firm. Sign in to continue.</p><Link className="primary-button invite-login" href="/login">Sign in</Link></>:<><span className="eyebrow">Join a firm</span><h1 style={{marginTop:6,marginBottom:22}}>Accept invitation</h1>{token===null?<p className="loading">Loading invitation…</p>:!token?<p className="error" role="alert">This invitation link is missing its token.</p>:<form onSubmit={submit}><label>Your name<input name="name" required autoComplete="name"/></label><label>Password<input name="password" type="password" minLength={8} required autoComplete="current-password"/></label><p className="invite-help">For an existing Taskdesk account, use its current password. Otherwise, this will be your new account password.</p>{error&&<p className="error" role="alert">{error}</p>}<button className="primary-button" disabled={busy}>{busy?"Accepting…":"Accept invitation"}</button></form>}</>}</section></main>;
+}
