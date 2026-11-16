@@ -1,16 +1,127 @@
-.task-filter-card{margin-bottom:16px}
-.task-filter-top{display:grid;grid-template-columns:minmax(190px,1.7fr) repeat(3,minmax(130px,1fr)) minmax(125px,.8fr) auto;gap:10px;align-items:center;padding:14px 16px}
-.task-filter-top>.search-field{width:100%;min-width:0}
-.task-filter-top>.control{width:100%;min-width:0}
-.task-filter-top>.secondary-button{white-space:nowrap}
-.task-filter-bottom{border-top:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.status-filters{border:0;margin:0;padding:0;display:flex;align-items:center;gap:12px}
-.status-filters legend{float:left;padding:0;margin-right:2px;font-size:11px;color:var(--muted);font-weight:700}
-.status-filters label{display:flex;align-items:center;gap:5px;font-size:11px;color:#53645a;white-space:nowrap}
-.status-filters input{accent-color:var(--green);width:14px;height:14px;margin:0}
-.date-filter{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);white-space:nowrap}
-.date-filter input{width:135px;padding:7px 8px;font-size:11px}
-.filter-reset{background:none;border:0;padding:5px 0;color:var(--green);font-size:11px;font-weight:700}
-.filter-count{margin-left:auto;color:var(--muted);font-size:11px;white-space:nowrap}
-@media(max-width:1200px){.task-filter-top{grid-template-columns:repeat(3,minmax(0,1fr))}.task-filter-top>.search-field{grid-column:span 2}.task-filter-bottom{gap:12px}}
-@media(max-width:620px){.task-filter-top{grid-template-columns:1fr;padding:12px}.task-filter-top>.search-field{grid-column:auto}.task-filter-bottom{padding:12px;gap:12px}.status-filters{width:100%;flex-wrap:wrap}.date-filter{justify-content:space-between;flex:1 1 100%}.date-filter input{flex:1}.filter-count{margin-left:0}}
+.task-filter-card {
+  margin-bottom: 16px;
+}
+.task-filter-top {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.7fr) repeat(
+      3,
+      minmax(130px, 1fr)
+    ) minmax(125px, 0.8fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+}
+.task-filter-top > .search-field {
+  width: 100%;
+  min-width: 0;
+}
+.task-filter-top > .control {
+  width: 100%;
+  min-width: 0;
+}
+.task-filter-top > .secondary-button {
+  white-space: nowrap;
+}
+.task-filter-bottom {
+  border-top: 1px solid var(--line);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.status-filters {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.status-filters legend {
+  float: left;
+  padding: 0;
+  margin-right: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.status-filters label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #53645a;
+  white-space: nowrap;
+}
+.status-filters input {
+  accent-color: var(--green);
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.date-filter input {
+  width: 135px;
+  padding: 7px 8px;
+  font-size: 11px;
+}
+.filter-reset {
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+.filter-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+@media (max-width: 1200px) {
+  .task-filter-top {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .task-filter-top > .search-field {
+    grid-column: span 2;
+  }
+  .task-filter-bottom {
+    gap: 12px;
+  }
+}
+@media (max-width: 620px) {
+  .task-filter-top {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+  .task-filter-top > .search-field {
+    grid-column: auto;
+  }
+  .task-filter-bottom {
+    padding: 12px;
+    gap: 12px;
+  }
+  .status-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .date-filter {
+    justify-content: space-between;
+    flex: 1 1 100%;
+  }
+  .date-filter input {
+    flex: 1;
+  }
+  .filter-count {
+    margin-left: 0;
+  }
+}
