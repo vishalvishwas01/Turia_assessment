@@ -203,10 +203,20 @@ describe("Taskdesk API (PostgreSQL integration)", () => {
     const response = await call("POST", "/firms", undefined, {
       firmName: "Duplicate Firm",
       name: "Duplicate User",
-      email: adminEmail,
+      email: `  ${adminEmail.toUpperCase()}  `,
       password: "StrongPass123!",
     });
     expect(response.statusCode).toBe(409);
+  });
+
+  it("rejects an empty task assignee as invalid input", async () => {
+    const response = await call("POST", "/tasks", adminToken, {
+      clientId: assignedClientId,
+      title: "Invalid assignee",
+      assigneeId: "",
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().fields.assigneeId).toEqual(expect.any(Array));
   });
 
   it("rate limits repeated invalid sign-ins by client address", async () => {

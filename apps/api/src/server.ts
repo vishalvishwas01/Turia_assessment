@@ -89,19 +89,20 @@ app.addHook("preHandler", async (req, reply) => {
 function input<T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
   return schema.parse(data);
 }
+const normalizeEmail = (value: string) => value.trim().toLowerCase();
 const firmSignup = z.object({
   firmName: z.string().trim().min(1),
   name: z.string().trim().min(1),
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(8),
 });
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(1),
 });
 const staffSchema = z.object({
   name: z.string().trim().min(1),
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(8),
   role: z.enum(["admin", "employee"]),
 });
@@ -111,14 +112,14 @@ const taskCreate = z.object({
   status: z.number().int().min(0).max(2).optional(),
   dueDate: z.number().int().nullable().optional(),
   fee: z.number().min(0).optional(),
-  assigneeId: z.string().optional(),
+  assigneeId: z.string().min(1).optional(),
   notes: z.string().nullable().optional(),
 });
 const taskPatch = z
   .object({
     title: z.string().trim().min(1).optional(),
     status: z.number().int().min(0).max(2).optional(),
-    assigneeId: z.string().optional(),
+    assigneeId: z.string().min(1).optional(),
     dueDate: z.number().int().nullable().optional(),
     fee: z.number().min(0).optional(),
     notes: z.string().nullable().optional(),
@@ -126,11 +127,11 @@ const taskPatch = z
   .refine((v) => Object.keys(v).length > 0);
 const clientSchema = z.object({
   name: z.string().trim().min(1),
-  email: z.string().email().optional().nullable(),
+  email: z.string().trim().email().optional().nullable(),
 });
 const branchSchema = z.object({ name: z.string().trim().min(1) });
 const inviteSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   role: z.enum(["admin", "employee"]),
 });
 const acceptInviteSchema = z.object({
@@ -152,6 +153,8 @@ app.setErrorHandler((error: any, _req, reply) => {
     return reply
       .code(400)
       .send({ error: "Invalid input", fields: error.flatten().fieldErrors });
+  if (error.code === "23505")
+    return reply.code(409).send({ error: "Conflict with an existing record" });
   if (error.statusCode)
     return reply.code(error.statusCode).send({ error: error.message });
   app.log.error(error);
@@ -174,7 +177,7 @@ app.get("/health", async (_req, reply) => {
 });
 app.post("/firms", async (req, reply) => {
   const data = input(firmSignup, req.body);
-  const email = data.email.trim().toLowerCase();
+  const email = normalizeEmail(data.email);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -214,7 +217,7 @@ app.register(async function authRoutes(authApp) {
     { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } },
     async (req, reply) => {
       const data = input(loginSchema, req.body),
-        email = data.email.trim().toLowerCase();
+        email = normalizeEmail(data.email);
       const user = await pool.query(
         "SELECT id,password_hash FROM users WHERE email=$1",
         [email],
@@ -271,7 +274,7 @@ app.post("/branches", async (req, reply) => {
 app.post("/invites", async (req, reply) => {
   adminOnly(req);
   const d = input(inviteSchema, req.body),
-    email = d.email.trim().toLowerCase(),
+    email = normalizeEmail(d.email),
     inviteToken = randomBytes(32).toString("base64url");
   const id = randomUUID();
   await pool.query(
@@ -363,7 +366,7 @@ app.post("/staff", async (req, reply) => {
     ensure(
       !(
         await c.query("SELECT 1 FROM users WHERE email=$1", [
-          d.email.toLowerCase(),
+          normalizeEmail(d.email),
         ])
       ).rowCount,
       409,
@@ -371,7 +374,7 @@ app.post("/staff", async (req, reply) => {
     );
     await c.query(
       "INSERT INTO users(id,name,email,password_hash) VALUES($1,$2,$3,$4)",
-      [id, d.name, d.email.toLowerCase(), await argon2.hash(d.password)],
+      [id, d.name, normalizeEmail(d.email), await argon2.hash(d.password)],
     );
     await c.query(
       "INSERT INTO firm_memberships(firm_id,user_id,role) VALUES($1,$2,$3)",
@@ -606,7 +609,7 @@ app.patch("/tasks/:id", async (req, reply) => {
       403,
       "Employees may only change status and notes",
     );
-  if (d.assigneeId && p.role === "admin")
+  if (d.assigneeId !== undefined && p.role === "admin")
     ensure(
       !!(
         await pool.query(

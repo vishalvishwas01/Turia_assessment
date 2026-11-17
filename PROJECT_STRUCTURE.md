@@ -27,6 +27,8 @@ Taskdesk/
 │   ├── 002_extension_b.sql      Branch and invitation schema; multi-firm support
 │   └── 003_extension_b_constraints.sql
 │                                Database constraint for one-level branches
+│   └── 004_normalize_user_emails.sql
+│                                Case-insensitive global account-email uniqueness
 │
 ├── scripts/
 │   ├── migrate.js               Applies ordered SQL migrations and DB grants

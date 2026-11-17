@@ -7,12 +7,17 @@ export default function Clients() {
     [q, setQ] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
+    [page, setPage] = useState(1),
+    [total, setTotal] = useState(0),
     [open, setOpen] = useState(false);
-  async function load() {
+  async function load(requestedPage = page) {
     setLoading(true);
     try {
-      const r = await api(`clients?q=${encodeURIComponent(q)}`);
+      const r = await api(
+        `clients?q=${encodeURIComponent(q)}&page=${requestedPage}&limit=25`,
+      );
       setRows(r.data);
+      setTotal(r.total);
       setError("");
     } catch (e: any) {
       setError(e.message);
@@ -21,11 +26,11 @@ export default function Clients() {
     }
   }
   useEffect(() => {
-    load();
+    load(page);
     api("me")
       .then(setMe)
       .catch(() => {});
-  }, []);
+  }, [page]);
   async function create(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget,
@@ -37,7 +42,8 @@ export default function Clients() {
       await api("clients", { method: "POST", body: JSON.stringify(d) });
       form.reset();
       setOpen(false);
-      await load();
+      if (page === 1) await load(1);
+      else setPage(1);
     } catch (e: any) {
       setError(e.message);
     }
@@ -69,15 +75,25 @@ export default function Clients() {
               placeholder="Search by client name"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && load()}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (page === 1) void load(1);
+                else setPage(1);
+              }}
             />
           </label>
-          <button className="secondary-button" onClick={load}>
+          <button
+            className="secondary-button"
+            onClick={() => {
+              if (page === 1) void load(1);
+              else setPage(1);
+            }}
+          >
             Search
           </button>
         </div>
         <span className="secondary-text">
-          {rows.length} client{rows.length === 1 ? "" : "s"}
+          {total} client{total === 1 ? "" : "s"}
         </span>
       </div>
       <section className="surface-card">
@@ -118,6 +134,21 @@ export default function Clients() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && total > 0 && (
+          <div className="table-footer">
+            <span>
+              Showing {(page - 1) * 25 + 1}–{Math.min(page * 25, total)} of {total} clients
+            </span>
+            <div className="pager">
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                Previous
+              </button>
+              <button disabled={page * 25 >= total} onClick={() => setPage(page + 1)}>
+                Next
+              </button>
+            </div>
           </div>
         )}
       </section>
